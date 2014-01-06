@@ -1,5 +1,5 @@
 
-cmapdir=~/Applications/brainbits/f.CoactivationMap
+cmapdir=~/Applications/brainbits/f.CoactivationMap/src
 ramonesdir=~/Applications/brainbits/RAMONES
 
 rm cmtool.o coactivation.o Analyze.o

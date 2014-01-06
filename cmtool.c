@@ -107,6 +107,46 @@ void seedVol(char *coords)
 	g_seeds[2]=i[2];
 }
 #pragma mark _
+void seedVol6(char *coords)
+{
+	int		ind[6],i,j,n,max=strlen(coords),fixcoords=0;
+	char	co[]="ijkxyz";
+
+	// printf("max: %i\n",max);
+	i=j=n=0;
+	do
+	{
+		// printf("%i. %s\n",j,&coords[j]);
+		while(coords[j]!=','&&j<max&&n<6)
+		{
+			// if(j==max) printf("j==max\n");
+			j++;
+		}
+		if(j<max)
+			coords[j]=(char)0;
+		// printf("i:%i, j:%i\n",i,j);
+		if(i<max&&strlen(&coords[i]))
+			ind[n++]=atoi(&coords[i]);
+		else
+		{
+			ind[n++]=-1;
+			fixcoords++;
+		}
+		i=j+1;
+		j++;
+	}
+	while(n<6&&j<=max);
+	
+	printf("Fixed coordinates:\n");
+	for(i=0;i<6;i++)
+		if(ind[i]>=0)
+			printf("%c=%i\n",co[i],ind[i]);
+	printf("Free coordinates:\n");
+	for(i=0;i<6;i++)
+		if(ind[i]<0)
+			printf("%c\n",co[i]);
+}
+#pragma mark _
 float getValue(AnalyzeHeader *hdr, char *img, int x, int y, int z)
 {
 	float		val;
@@ -496,7 +536,7 @@ void saveTopMesh(int jj)
 	char	tag[512];
 	float	x,xx,y,yy,xy,n,num,den,r2;
 	WTag	*wtag;
-	char	*tmpdir;
+	char	*tmpdir,template[]="cmtool.XXXXXXX";
 	
 	sz=gd.LR*gd.PA*gd.IS;
 
@@ -525,7 +565,7 @@ void saveTopMesh(int jj)
 
 	wtag=(WTag*)calloc(ntag,sizeof(WTag));	
 	fmesh=fopen(path,"r");
-	tmpdir=tmpnam(NULL);
+	tmpdir=mktemp(template);
 	sprintf(cmd,"mkdir %s",tmpdir);
 	system(cmd);
 	for(l=0;l<ntag;l++)
@@ -824,10 +864,12 @@ int main(int argc, char *argv[])
 	printf("%s\n",version);
 
 	// argv[1]: cmapdir										| cmapdir=coactivation map directory (contains defaults.txt, sum.img, brainspell.xml/*brainmap.xml*/)
-	// argv[2,3]:{mni x,y,z|vol i,j,k|roi path|tag name}	| mni x,y,z= seed coordinates in MNI space,
-	//														| vol i,j,k= seed coordinates in volume index space,
+	// argv[2,3]:{mni x,y,z|vol i,j,k|roi path|             | mni x,y,z= seed coordinates in MNI space,
+	//             tag name|vol6 i,j,k,x,y,z}               | vol i,j,k= seed coordinates in volume index space,
 	//														| roi {average} path= path to ROI file to use as multiple seeds or average through all seeds
 	//														| tag name= name of the tag to pull
+	//                                                      | vol6 i,j,k are seed coordinates, x,y,z are space coordinates, 3 coordinates must have a number,
+	//                                                      |    the others will be scanned
 	// argv[4...] commands:
 	//		-swap											| swap endianness in coactivation map files (coincidence, sum)
 	//		-average										| average over the ROI
@@ -881,6 +923,9 @@ int main(int argc, char *argv[])
 		else
 		if(strcmp(argv[i],"-vol")==0)
 			seedVol(argv[++i]);
+		else
+		if(strcmp(argv[i],"-vol6")==0)
+			seedVol6(argv[++i]);
 		else
 		if(strcmp(argv[i],"-roi")==0)
 		{
