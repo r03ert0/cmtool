@@ -217,6 +217,39 @@ void seedROI(char *path)
 	}
 	free(addr);
 }
+void seedMNIFile(char *path)
+{
+	printf(" > seedMNIFile\n");
+	FILE			*f;
+	char			str[1024];
+	float			mni[3],voxcmap[3];
+	
+	g_nseeds=0;
+	f=fopen(path,"r");
+	while(!feof(f))
+	{
+		fgets(str,1024,f);
+		g_nseeds++;
+	}
+	fclose(f);
+	g_seeds=(int*)calloc(g_nseeds*3,sizeof(int));
+	printf("%i seeds\n",g_nseeds);
+
+	g_nseeds=0;
+	f=fopen(path,"r");
+	while(!feof(f))
+	{
+		fgets(str,1024,f);
+		sscanf(str," %f %f %f ",&(mni[0]),&(mni[1]),&(mni[2]));
+		v_m(voxcmap,mni,gd.t2v);
+		g_seeds[g_nseeds*3+0]=voxcmap[0];
+		g_seeds[g_nseeds*3+1]=voxcmap[1];
+		g_seeds[g_nseeds*3+2]=voxcmap[2];
+		g_nseeds++;
+		// Print conversion:
+		printf("%g,%g,%g -> %g,%g,%g\n",mni[0],mni[1],mni[2],voxcmap[0],voxcmap[1],voxcmap[2]);
+	}
+}
 #pragma mark -
 void addToAverage(void)
 {
@@ -865,11 +898,12 @@ int main(int argc, char *argv[])
 
 	// argv[1]: cmapdir										| cmapdir=coactivation map directory (contains defaults.txt, sum.img, brainspell.xml/*brainmap.xml*/)
 	// argv[2,3]:{mni x,y,z|vol i,j,k|roi path|             | mni x,y,z= seed coordinates in MNI space,
-	//             tag name|vol6 i,j,k,x,y,z}               | vol i,j,k= seed coordinates in volume index space,
-	//														| roi {average} path= path to ROI file to use as multiple seeds or average through all seeds
+	//             tag name|vol6 i,j,k,x,y,z|               | vol i,j,k= seed coordinates in volume index space,
+	//             mnifile path}                            | roi {average} path= path to ROI file to use as multiple seeds or average through all seeds
 	//														| tag name= name of the tag to pull
 	//                                                      | vol6 i,j,k are seed coordinates, x,y,z are space coordinates, 3 coordinates must have a number,
 	//                                                      |    the others will be scanned
+	//                                                      | mnifile path= path to text file containing seeds in MNI space,
 	// argv[4...] commands:
 	//		-swap											| swap endianness in coactivation map files (coincidence, sum)
 	//		-average										| average over the ROI
@@ -920,6 +954,9 @@ int main(int argc, char *argv[])
 		
 		if(strcmp(argv[i],"-mni")==0)
 			seedMNI(argv[++i]);
+		else
+		if(strcmp(argv[i],"-mnifile")==0)
+			seedMNIFile(argv[++i]);
 		else
 		if(strcmp(argv[i],"-vol")==0)
 			seedVol(argv[++i]);
