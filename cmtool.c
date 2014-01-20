@@ -493,11 +493,11 @@ void saveArticles(int npeaks, Peak *peaks, int j)
 	printf(" > saveArticles (coverseed=%s)\n",g_coverSeedFlag?"YES":"NO");
 	char	*xvol;
 	int		i,k,l,sz,npks;
-	char	path[2048];
-	char	name[255];
+	char	path[2048],cmd[2048];
 	FILE	*f,*froi;
 	int		*LUT;
 	char	pubmedid[256],reference[256],domains[2048],meshcodes[2048];
+	char	*tmpdir,template[]="cmtool.XXXXXXX";
 	
 	LUT=(int*)calloc(2*gd.N, sizeof(int));
 	configureArticlesLUT(LUT);
@@ -509,6 +509,11 @@ void saveArticles(int npeaks, Peak *peaks, int j)
 	fprintf(f,"Peaks\tPercent\tExpNumber\tPubMedID\tReference\tMeshCodes\tDomains\n");
 	// scan through the experiments for intersections with the network peaks
 	xvol=(char*)calloc(sz,sizeof(char));
+
+	tmpdir=mktemp(template);
+	sprintf(cmd,"mkdir %s",tmpdir);
+	system(cmd);
+
 	for(i=1;i<=gd.N;i++)
 	{
 		if((i%(gd.N/100))<((i-1)%(gd.N/100)))
@@ -516,10 +521,25 @@ void saveArticles(int npeaks, Peak *peaks, int j)
 			printf("%i%% ",(int)(100*i/(float)gd.N));
 			fflush(stdout);
 		}
+
+		sprintf(path,"%s/rois.zip",g_cmapdir);
+		sprintf(cmd,"unzip -joq %s \"%i.img\" -d %s/",path,i,tmpdir);
+		system(cmd);
+		sprintf(path,"%s/%i.img",tmpdir,i);
+
+		froi=fopen(path,"r");
+		fread(xvol,sz,sizeof(char),froi);
+		fclose(froi);
+
+		sprintf(cmd,"rm %s/%i.img",tmpdir,i);
+		system(cmd);
+
+		/*
 		sprintf(name,"%s/rois/%i.img",g_cmapdir,i);
 		froi=fopen(name,"r");
 		fread(xvol,sz,sizeof(char),froi);
 		fclose(froi);
+		*/
 		
 		npks=0;
 		for(k=0;k<npeaks;k++)
@@ -544,6 +564,10 @@ void saveArticles(int npeaks, Peak *peaks, int j)
 		}
 	}
 	fclose(f);
+
+	sprintf(cmd,"rm -r %s",tmpdir);
+	system(cmd);
+
 	free(LUT);
 }
 int compare(const void *a, const void *b)
@@ -621,6 +645,8 @@ void saveTopMesh(int jj)
 		ftag=fopen(path,"r");
 		fread(xvol,sz,sizeof(short),ftag);
 		fclose(ftag);
+		sprintf(cmd,"rm %s/%s.img",tmpdir,tag);
+		system(cmd);
 		
 		// compute correlation
 		y=yy=xy=0;
