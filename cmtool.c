@@ -28,7 +28,11 @@ char version[]="cmtool, v6, roberto toro, 1 July 2013";	// added labelling funct
 	./cmtool /Volumes/4TB/data/coactivations/2010/coincidences -roi ~/Documents/2010_06Rest-Milham/analysis/01roi/left_insula_ROI.hdr -out ~/Desktop/ -saveroiarticles
 	./cmtool ~/Documents/2010_10Coactivations/coincidences2013 -vol 6,24,23 -convert dct -out ~/Desktop/ -save map
 	./cmtool ~/Documents/2010_10Coactivations/coincidences2013 -roi ~/Desktop/mask.hdr -convert dct -out ~/Desktop/cmap-dct/ -average -save map
-*/
+	./cmtool ~/Documents/2010_10Coactivations/coincidences2013 -vol 6,24,23 -convert phir -out ~/Desktop/ -save topmesh
+	./cmtool ~/Documents/2010_10Coactivations/coincidences2013 -vol 6,24,23 -convert phir -out ~/Desktop/test -save articles 0.1 4
+	./cmtool ~/Documents/2010_10Coactivations/coincidences2013 -vol 6,24,23 -convert phir -out ~/Desktop/test -meshfilter F03 -save articles 0.1 4
+	./cmtool ~/Documents/2010_10Coactivations/coincidences2013 -vol 6,24,23 -convert phir -out ~/Desktop/test -meshfilter F03 -meshdisplay name -save articles 0.1 4
+ */
 
 #include "defaults.h"
 #include "coactivation.h"
