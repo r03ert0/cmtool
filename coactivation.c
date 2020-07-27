@@ -431,7 +431,7 @@ void findpeaks(float threshold, int R, int *co, int *sz, short *sum, short *cvol
 					val=likelihood_ratio(sum[i1], sum[i2], cvol[i2], N);
 					
 					if(	val>threshold &&	// count immediate superthreshold neighbours
-						fabs(l)<2 && fabs(m)<2 && fabs(n)<2)
+						abs(l)<2 && abs(m)<2 && abs(n)<2)
 						nn++;
 					
 					if(val>=max)

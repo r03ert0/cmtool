@@ -51,6 +51,7 @@ typedef struct
 #define	MutualInformationType		5
 #define	PhiCorrelationType			6
 #define DiscreteCosineTransformType	7
+#define	SqrtPhiCorrelationType		8
 
 char	*g_cmapdir;				// coactivation map directory (contains defaults.txt, sum.img, brainspell.xml/*brainmap.xml*/)
 char	g_roipath[2048];		// path to ROI (used by seedROI and saveROIArticles)
@@ -67,7 +68,7 @@ int		g_meshdisplay;			// display mode for mesh tags, either as "code" (1) or "na
 char	g_meshroot[256];		// root used to filter the displayed mesh heading codes, default "F"
 int		g_coverSeedFlag;		// in article selection, only report articles that cover the seed
 float	g_coverageThreshold;	// in article selection, only report articles that cover at least this percentage of the network
-char	*g_dataType[]={"coin","lr","logp","t","mi","phir","dct"};	// data type string description
+char	*g_dataType[]={"coin","lr","logp","t","mi","phir","dct","sqrt-phir"};	// data type string description
 int		g_dataTypeIndex;			// data type index
 float	g_roi2mni[16]={ 4,0,0,0,	// conversion matrix from standard coactivation map volume (45,54,45, but should be read from defaults...) to MNI
 						0,4,0,0,
@@ -78,6 +79,20 @@ GlobalDefaults	gd;		// global defaults (to eliminate in future versions?)
 void v_m(float *r,float *v,float *m);
 
 #pragma mark -
+void printMinMax()
+{
+    int i2,sz=gd.LR*gd.PA*gd.IS;
+    float min,max;
+	for(i2=0;i2<sz;i2++)
+	{
+        if(i2==0) min=max=g_map[i2];
+        else {
+            if(g_map[i2]<min) min=g_map[i2];
+            if(g_map[i2]>max) max=g_map[i2];
+        }
+    }
+    printf("g_map min: %g, max: %g \n",min,max);
+}
 int cmp(char *str, char *root)
 {
 	int	i;
@@ -302,18 +317,30 @@ void convert(int j)
 				break;
 			case PhiCorrelationType:
 			case DiscreteCosineTransformType:
-				g_map[i2]=phi_correlation(g_sum[i1], g_sum[i2], g_coin[i2], gd.N);
+			    g_map[i2]=phi_correlation(g_sum[i1], g_sum[i2], g_coin[i2], gd.N);
 				break;
+			case SqrtPhiCorrelationType:
+			{
+			    float v=phi_correlation(g_sum[i1], g_sum[i2], g_coin[i2], gd.N);
+			    g_map[i2]=(v<0?(-1):(1))*sqrt(fabs(v));
+				break;
+			}
+			default:
+			    g_map[i2]=g_coin[i2];
+			    
 		}
+		
 	}
-	
+	printMinMax();
+		
 	if(g_dataTypeIndex==DiscreteCosineTransformType)
 	{
 		int	dim[3];
 		dim[0]=gd.LR;
 		dim[1]=gd.PA;
 		dim[2]=gd.IS;
-		discrete_cosine_transform(g_map,dim);
+		// discrete_cosine_transform(g_map,dim);
+		printf("WARNING: discrete_cosine_transform is not yet implemented");
 	}
 }
 #pragma mark -
@@ -410,11 +437,11 @@ void articleDescription(int *LUT,int ind,char *pubmedid,char *reference,char *me
 	do
 	{
 		fgets(str,2048,f);
-		if(strstr(str,"<Medline_number>"))
+		if(strstr(str,"<pmid>"))
 		{
-			ptr0=strstr(str,"<Medline_number>");
-			strcpy(pubmedid,ptr0+strlen("<Medline_number>"));
-			ptr1=strstr(pubmedid,"</Medline_number>");
+			ptr0=strstr(str,"<pmid>");
+			strcpy(pubmedid,ptr0+strlen("<pmid>"));
+			ptr1=strstr(pubmedid,"</pmid>");
 			ptr1[0]=(char)0;
 		}
 		else
@@ -623,6 +650,7 @@ void saveTopMesh(int jj)
 		ntag++;
 	}
 	fclose(fmesh);
+	printf("# tags: %i\n",ntag);
 
 	wtag=(WTag*)calloc(ntag,sizeof(WTag));	
 	fmesh=fopen(path,"r");
@@ -649,7 +677,7 @@ void saveTopMesh(int jj)
 		ftag=fopen(path,"r");
 		fread(xvol,sz,sizeof(short),ftag);
 		fclose(ftag);
-		sprintf(cmd,"rm %s/%s.img",tmpdir,tag);
+		sprintf(cmd,"rm \"%s/%s.img\"",tmpdir,tag);
 		system(cmd);
 		
 		// compute correlation
@@ -669,9 +697,10 @@ void saveTopMesh(int jj)
 		
 		strcpy(wtag[l].tag,tag);
 		wtag[l].r2=r2;
+
 	}
 	printf("\n");
-	sprintf(cmd,"rm -r %s",tmpdir);
+	sprintf(cmd,"rm -r \"%s\"",tmpdir);
 	system(cmd);
 	
 	// print top 100
@@ -733,7 +762,7 @@ void saveROIArticles(void)
 	free(LUT);
 }
 #pragma mark -
-void saveTagVolume(char *theTag)
+int saveTagVolume(char *theTag)
 {
 	printf(" > getTag: [%s]\n",theTag);
 	char	*xvol;
@@ -754,7 +783,7 @@ void saveTagVolume(char *theTag)
 	sumVol=(short*)calloc(sz,sizeof(short));
 	for(l=1;l<=gd.N;l++)
 	{
-		if(0)
+		if(1)
 		if((l%(gd.N/100))<((l-1)%(gd.N/100)))
 		{
 			printf("%i%% ",(int)(100*l/(float)gd.N));
@@ -762,8 +791,13 @@ void saveTagVolume(char *theTag)
 		}
 		sprintf(name,"%s/rois/%i.img",g_cmapdir,l);
 		froi=fopen(name,"r");
-		fread(xvol,sz,sizeof(char),froi);
-		fclose(froi);
+	    if(froi) {
+            fread(xvol,sz,sizeof(char),froi);
+            fclose(froi);
+        } else {
+            printf("ERROR: Cannot open ROI. Is there an uncompressed version of rois.zip?\n");
+            return 0;
+        }
 		
 		articleDescription(LUT,l-1,pubmedid,reference,meshcodes,domains);
 		tag=strtok(meshcodes,";");
@@ -771,7 +805,8 @@ void saveTagVolume(char *theTag)
 		{
 			if(strcmp(tag,theTag)==0)
 			{
-				printf("%i,%s ",l,pubmedid);
+				if(0) printf("%i,%s ",l,pubmedid);
+				
 				for(i=0;i<sz;i++)
 					sumVol[i]+=xvol[i];
 			}
@@ -781,25 +816,14 @@ void saveTagVolume(char *theTag)
 	printf("\n");
 	free(LUT);
 	free(xvol);
-	
-	float	x,xx,y,yy,xy,n=sz;
-	x=xx=y=yy=xy=0;
-	for(i=0;i<sz;i++)
-	{
-		x+=g_map[i];
-		xx+=g_map[i]*g_map[i];
-		y+=sumVol[i];
-		yy+=sumVol[i]*sumVol[i];
-		xy+=g_map[i]*sumVol[i];
-	}
-	printf("x:%f, xx:%f, y:%f, yy:%f, xy:%f\n",x,xx,y,yy,xy);
-	printf("r=%f\n",(xy-x*y/n)/sqrt((xx-x*x/n)*(yy-y*y/n)));
 
 	sprintf(path,"%s%s.img",g_out,theTag);
 	f=fopen(path,"w");
 	fwrite(sumVol,sz,sizeof(short),f);
 	fclose(f);
 	free(sumVol);
+	
+	return 1;
 }
 #pragma mark -
 // result_vector = vector x matrix
@@ -846,7 +870,7 @@ void findPeaks(float threshold,int R, int *npeaks, Peak *peaks)
 					val=g_map[i2];
 					
 					if(	val>threshold &&	// count immediate superthreshold neighbours
-						fabs(l)<2 && fabs(m)<2 && fabs(n)<2)
+						abs(l)<2 && abs(m)<2 && abs(n)<2)
 						nn++;
 					
 					if(val>=max)
@@ -962,22 +986,30 @@ int main(int argc, char *argv[])
 	strcpy(g_meshroot,"F");
 	g_coverSeedFlag=0;
 	g_coverageThreshold=0;
+    g_dataTypeIndex=CoincidencesType;
 	g_sum=NULL;
 	g_average=NULL;
 
 	// 1. configure defaults
+	printf("> configure defaults\n");
 	g_cmapdir=argv[1];
 	sprintf(path,"%s/defaults.txt",g_cmapdir);
 	defaults(path,&gd);
 	strcpy(g_out,"./");
+	printf("#experiments: %i\n",gd.N);
 	
 	// 3. allocate memory
+	printf("> allocate memory\n");
 	g_sum=(short*)calloc(gd.LR*gd.PA*gd.IS,sizeof(short));
 	g_coin=(short*)calloc(gd.LR*gd.PA*gd.IS,sizeof(short));
 	g_map=(float*)calloc(gd.LR*gd.PA*gd.IS,sizeof(float));
 	
+	// 4. load sum
+	printf("> load sum volume\n");
 	loadSum();
-		
+	
+	// 5. execute commands
+	printf("> execute commands\n");
 	for(i=2;i<argc;i++)
 	{
 		printf("[ %i. %s\n",i,argv[i]);
@@ -1025,6 +1057,9 @@ int main(int argc, char *argv[])
 			else
 			if(strcmp(argv[i+1],"phir")==0)
 				g_dataTypeIndex=PhiCorrelationType;
+			else
+			if(strcmp(argv[i+1],"sqrt-phir")==0)
+				g_dataTypeIndex=SqrtPhiCorrelationType;
 			else
 			if(strcmp(argv[i+1],"dct")==0)
 				g_dataTypeIndex=DiscreteCosineTransformType;
